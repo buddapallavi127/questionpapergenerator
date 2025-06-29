@@ -180,7 +180,7 @@ const Index = () => {
                   <Checkbox 
                     id="auto-generate" 
                     checked={autoGenerate}
-                    onCheckedChange={setAutoGenerate}
+                    onCheckedChange={(checked) => setAutoGenerate(checked === true)}
                   />
                   <label htmlFor="auto-generate" className="text-sm font-medium text-gray-700">
                     Auto Generate?
