@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { FileDown, UploadCloud, ArrowLeft, Download } from 'lucide-react';
+import { FileDown, UploadCloud, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const UploadQuestions = () => {
@@ -18,32 +18,31 @@ const UploadQuestions = () => {
     setIsLoading(true);
     setMessage('');
 
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
+      const text = await file.text();
+      const jsonData = JSON.parse(text);
+
       const endpoint =
         mode === 'upload'
-          ? 'http://localhost:8000/api/questions/upload-xlsx'
-          : 'http://localhost:8000/api/questions/update-from-xlsx';
+          ? 'http://localhost:8000/api/questions/upload-json'
+          : 'http://localhost:8000/api/questions/update-from-json';
 
       const res = await fetch(endpoint, {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(jsonData),
       });
 
       const result = await res.json();
       setMessage(result.detail || 'Operation successful!');
     } catch (err) {
-      setMessage('Operation failed. Please try again.');
+      setMessage('Operation failed. Please check your JSON format and try again.');
       console.error(err);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleDownload = () => {
-    window.open('http://localhost:8000/api/questions/export-xlsx', '_blank');
   };
 
   return (
@@ -60,7 +59,7 @@ const UploadQuestions = () => {
           </Button>
           <h2 className="text-2xl font-bold text-orange-800 flex items-center gap-3">
             <UploadCloud className="h-8 w-8" />
-            {mode === 'upload' ? 'Upload New Questions' : 'Update Existing Questions'}
+            {mode === 'upload' ? 'Upload New Questions (JSON)' : 'Update Questions (JSON)'}
           </h2>
         </div>
 
@@ -76,26 +75,16 @@ const UploadQuestions = () => {
               <option value="upload">Upload New Questions</option>
               <option value="update">Update Existing Questions</option>
             </select>
-
-            {mode === 'update' && (
-              <Button
-                onClick={handleDownload}
-                className="flex items-center gap-2 text-orange-700 border border-orange-300 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-md"
-              >
-                <Download className="h-4 w-4" />
-                Download Questions
-              </Button>
-            )}
           </div>
 
           {/* File input */}
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">
-              Excel File (.xlsx)
+              JSON File (.json)
             </label>
             <Input
               type="file"
-              accept=".xlsx"
+              accept=".json"
               onChange={(e) => {
                 setFile(e.target.files?.[0] || null);
                 setMessage('');
@@ -148,22 +137,26 @@ const UploadQuestions = () => {
           {/* Instructions */}
           <div className="pt-4 border-t border-orange-100 text-sm text-gray-600">
             <h3 className="font-medium text-gray-700 mb-2">
-              {mode === 'upload' ? 'Upload File Format:' : 'Update File Format:'}
+              {mode === 'upload' ? 'Upload JSON Format:' : 'Update JSON Format:'}
             </h3>
-
-            {mode === 'upload' ? (
-              <ul className="list-disc pl-5 space-y-1">
-                <li>Must include: <code>text</code>, <code>type</code>, <code>level</code>, <code>subject</code></li>
-                <li>Optional: <code>option_a</code>, <code>option_b</code>, <code>option_c</code>, <code>option_d</code>, <code>chapter</code>, <code>topic</code>, <code>class_</code>, <code>language</code></li>
-                <li>Supported types: <code>mcq</code>, <code>numerical</code>, <code>subjective</code></li>
-                <li>Supported levels: <code>easy</code>, <code>medium</code>, <code>hard</code></li>
-              </ul>
-            ) : (
-              <ul className="list-disc pl-5 space-y-1">
-                <li><strong>Must include:</strong> <code>id</code> column (used to identify the question)</li>
-                <li>Include any fields you want to update: <code>text</code>, <code>chapter</code>, <code>option_a</code>, etc.</li>
-                <li>Empty cells are ignored and will not overwrite data</li>
-              </ul>
+            <pre className="bg-orange-50 p-3 rounded border border-orange-100 text-xs overflow-auto">
+{`[
+  {
+    "text": "What is 2 + 2?",
+    "type": "mcq",
+    "level": "easy",
+    "subject": "Math",
+    "option_a": "3",
+    "option_b": "4",
+    "option_c": "5",
+    "option_d": "6"
+  }
+]`}
+            </pre>
+            {mode === 'update' && (
+              <p className="mt-2 text-xs text-gray-500">
+                Include an <code>id</code> field to identify the question to update.
+              </p>
             )}
           </div>
         </div>
