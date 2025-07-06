@@ -1,36 +1,49 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { FileDown, UploadCloud, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';  // <-- import useNavigate
+import { FileDown, UploadCloud, ArrowLeft, Download } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const UploadQuestions = () => {
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [mode, setMode] = useState<'upload' | 'update'>('upload');
 
-  const navigate = useNavigate();  // <-- initialize navigate
+  const navigate = useNavigate();
 
   const handleUpload = async () => {
     if (!file) return;
 
     setIsLoading(true);
+    setMessage('');
+
     const formData = new FormData();
     formData.append('file', file);
 
     try {
-      const res = await fetch('http://localhost:8000/api/questions/upload-xlsx', {
+      const endpoint =
+        mode === 'upload'
+          ? 'http://localhost:8000/api/questions/upload-xlsx'
+          : 'http://localhost:8000/api/questions/update-from-xlsx';
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         body: formData,
       });
+
       const result = await res.json();
-      setMessage(result.detail || 'Upload successful!');
+      setMessage(result.detail || 'Operation successful!');
     } catch (err) {
-      setMessage('Upload failed. Please try again.');
+      setMessage('Operation failed. Please try again.');
       console.error(err);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleDownload = () => {
+    window.open('http://localhost:8000/api/questions/export-xlsx', '_blank');
   };
 
   return (
@@ -39,7 +52,7 @@ const UploadQuestions = () => {
         <div className="bg-gradient-to-r from-orange-50 to-amber-50 p-6 border-b border-orange-100 flex items-center space-x-4">
           <Button
             variant="ghost"
-            onClick={() => navigate(-1)} // go back to previous page
+            onClick={() => navigate(-1)}
             className="text-orange-600 hover:bg-orange-100 p-2 rounded"
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
@@ -47,18 +60,42 @@ const UploadQuestions = () => {
           </Button>
           <h2 className="text-2xl font-bold text-orange-800 flex items-center gap-3">
             <UploadCloud className="h-8 w-8" />
-            Upload Questions
+            {mode === 'upload' ? 'Upload New Questions' : 'Update Existing Questions'}
           </h2>
         </div>
-        
+
         <div className="p-6 space-y-6">
+          {/* Mode toggle */}
+          <div className="flex items-center gap-4">
+            <label className="font-medium text-gray-700">Action:</label>
+            <select
+              value={mode}
+              onChange={(e) => setMode(e.target.value as 'upload' | 'update')}
+              className="border border-orange-200 rounded p-1 text-sm"
+            >
+              <option value="upload">Upload New Questions</option>
+              <option value="update">Update Existing Questions</option>
+            </select>
+
+            {mode === 'update' && (
+              <Button
+                onClick={handleDownload}
+                className="flex items-center gap-2 text-orange-700 border border-orange-300 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-md"
+              >
+                <Download className="h-4 w-4" />
+                Download Questions
+              </Button>
+            )}
+          </div>
+
+          {/* File input */}
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">
               Excel File (.xlsx)
             </label>
-            <Input 
-              type="file" 
-              accept=".xlsx" 
+            <Input
+              type="file"
+              accept=".xlsx"
               onChange={(e) => {
                 setFile(e.target.files?.[0] || null);
                 setMessage('');
@@ -67,6 +104,7 @@ const UploadQuestions = () => {
             />
           </div>
 
+          {/* File info */}
           {file && (
             <div className="bg-orange-50 p-3 rounded-md border border-orange-100">
               <div className="flex items-center gap-2 text-orange-700">
@@ -79,32 +117,54 @@ const UploadQuestions = () => {
             </div>
           )}
 
-          <Button 
-            onClick={handleUpload} 
+          {/* Upload Button */}
+          <Button
+            onClick={handleUpload}
             disabled={!file || isLoading}
             className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-md"
           >
-            {isLoading ? 'Uploading...' : 'Upload Questions'}
+            {isLoading
+              ? mode === 'upload'
+                ? 'Uploading...'
+                : 'Updating...'
+              : mode === 'upload'
+              ? 'Upload Questions'
+              : 'Update Questions'}
           </Button>
 
+          {/* Message */}
           {message && (
-            <div className={`p-3 rounded-md ${
-              message.includes('success') 
-                ? 'bg-green-50 text-green-700 border border-green-100' 
-                : 'bg-red-50 text-red-700 border border-red-100'
-            }`}>
+            <div
+              className={`p-3 rounded-md ${
+                message.toLowerCase().includes('success')
+                  ? 'bg-green-50 text-green-700 border border-green-100'
+                  : 'bg-red-50 text-red-700 border border-red-100'
+              }`}
+            >
               {message}
             </div>
           )}
 
+          {/* Instructions */}
           <div className="pt-4 border-t border-orange-100 text-sm text-gray-600">
-            <h3 className="font-medium text-gray-700 mb-2">Excel File Format:</h3>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>Must include columns: text, type, level, subject</li>
-              <li>Optional columns: option_a, option_b, option_c, option_d (for MCQs)</li>
-              <li>Supported types: mcq, numerical, subjective</li>
-              <li>Supported levels: easy, medium, hard</li>
-            </ul>
+            <h3 className="font-medium text-gray-700 mb-2">
+              {mode === 'upload' ? 'Upload File Format:' : 'Update File Format:'}
+            </h3>
+
+            {mode === 'upload' ? (
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Must include: <code>text</code>, <code>type</code>, <code>level</code>, <code>subject</code></li>
+                <li>Optional: <code>option_a</code>, <code>option_b</code>, <code>option_c</code>, <code>option_d</code>, <code>chapter</code>, <code>topic</code>, <code>class_</code>, <code>language</code></li>
+                <li>Supported types: <code>mcq</code>, <code>numerical</code>, <code>subjective</code></li>
+                <li>Supported levels: <code>easy</code>, <code>medium</code>, <code>hard</code></li>
+              </ul>
+            ) : (
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Must include:</strong> <code>id</code> column (used to identify the question)</li>
+                <li>Include any fields you want to update: <code>text</code>, <code>chapter</code>, <code>option_a</code>, etc.</li>
+                <li>Empty cells are ignored and will not overwrite data</li>
+              </ul>
+            )}
           </div>
         </div>
       </div>
