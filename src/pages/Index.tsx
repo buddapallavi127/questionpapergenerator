@@ -40,12 +40,11 @@ const Index = () => {
   const [autoGenerate, setAutoGenerate] = useState(false);
   const [filters, setFilters] = useState({
     class: '',
-    language: '',
     subject: '',
-    level: '',
     chapter: '',
-    type: '',
     topic: '',
+    type: '',
+    level: '',
   });
   const [activeQuestionId, setActiveQuestionId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -181,30 +180,62 @@ const Index = () => {
     }
   };
 
+  // Reset dependent filters when parent filter changes
+  const handleFilterChange = (filterName: string, value: string) => {
+    setFilters(prev => {
+      const newFilters = { ...prev, [filterName]: value };
+      
+      // Reset dependent filters based on hierarchy
+      if (filterName === 'class') {
+        newFilters.subject = '';
+        newFilters.chapter = '';
+        newFilters.topic = '';
+        newFilters.type = '';
+        newFilters.level = '';
+      } else if (filterName === 'subject') {
+        newFilters.chapter = '';
+        newFilters.topic = '';
+        newFilters.type = '';
+        newFilters.level = '';
+      } else if (filterName === 'chapter') {
+        newFilters.topic = '';
+        newFilters.type = '';
+        newFilters.level = '';
+      } else if (filterName === 'topic') {
+        newFilters.type = '';
+        newFilters.level = '';
+      } else if (filterName === 'type') {
+        newFilters.level = '';
+      }
+      
+      return newFilters;
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100">
       <header className="bg-white shadow-sm border-b border-orange-200">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-    <div className="text-sm text-gray-600 flex items-center space-x-4">
-      <motion.div 
-        className="flex items-center space-x-2"
-        whileHover={{ scale: 1.05 }}
-      >
-        <Target className="h-4 w-4 text-orange-500 animate-pulse" />
-        <span className="font-medium">TEST GENERATOR</span>
-      </motion.div>
-    </div>
-    <Button 
-      asChild 
-      variant="ghost" 
-      className="text-orange-600 hover:bg-orange-50"
-    >
-      <Link to="/upload">
-        <UploadCloud className="h-4 w-4 mr-2" />
-        Upload Questions
-      </Link>
-    </Button>
-  </div>
+          <div className="text-sm text-gray-600 flex items-center space-x-4">
+            <motion.div 
+              className="flex items-center space-x-2"
+              whileHover={{ scale: 1.05 }}
+            >
+              <Target className="h-4 w-4 text-orange-500 animate-pulse" />
+              <span className="font-medium">TEST GENERATOR</span>
+            </motion.div>
+          </div>
+          <Button 
+            asChild 
+            variant="ghost" 
+            className="text-orange-600 hover:bg-orange-50"
+          >
+            <Link to="/upload">
+              <UploadCloud className="h-4 w-4 mr-2" />
+              Upload Questions
+            </Link>
+          </Button>
+        </div>
       </header>
 
       <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -400,10 +431,14 @@ const Index = () => {
                 </div>
               </CardHeader>
               <CardContent className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                  {/* Class Filter */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
-                    <Select onValueChange={v => setFilters(prev => ({ ...prev, class: v }))}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">🏷️ Class</label>
+                    <Select 
+                      value={filters.class}
+                      onValueChange={v => handleFilterChange('class', v)}
+                    >
                       <SelectTrigger className="bg-white border-orange-200 hover:border-orange-300 shadow-sm">
                         <SelectValue placeholder="Select Class" />
                       </SelectTrigger>
@@ -411,23 +446,20 @@ const Index = () => {
                         <SelectItem value="jee-main">JEE Main</SelectItem>
                         <SelectItem value="neet">NEET</SelectItem>
                         <SelectItem value="jee-advanced">JEE Advanced</SelectItem>
+                        <SelectItem value="class-11">Class 11</SelectItem>
+                        <SelectItem value="class-12">Class 12</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Subject Filter */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Language</label>
-                    <Select onValueChange={v => setFilters(prev => ({ ...prev, language: v }))}>
-                      <SelectTrigger className="bg-white border-orange-200 hover:border-orange-300 shadow-sm">
-                        <SelectValue placeholder="Select Language" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="english">English</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                    <Select onValueChange={v => setFilters(prev => ({ ...prev, subject: v }))}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">📘 Subject</label>
+                    <Select 
+                      value={filters.subject}
+                      onValueChange={v => handleFilterChange('subject', v)}
+                      disabled={!filters.class}
+                    >
                       <SelectTrigger className="bg-white border-orange-200 hover:border-orange-300 shadow-sm">
                         <SelectValue placeholder="Select Subject" />
                       </SelectTrigger>
@@ -439,9 +471,122 @@ const Index = () => {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Chapter Filter */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Level</label>
-                    <Select onValueChange={v => setFilters(prev => ({ ...prev, level: v }))}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">📖 Chapter</label>
+                    <Select 
+                      value={filters.chapter}
+                      onValueChange={v => handleFilterChange('chapter', v)}
+                      disabled={!filters.subject}
+                    >
+                      <SelectTrigger className="bg-white border-orange-200 hover:border-orange-300 shadow-sm">
+                        <SelectValue placeholder="Select Chapter" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filters.subject === 'physics' && (
+                          <>
+                            <SelectItem value="mechanics">Mechanics</SelectItem>
+                            <SelectItem value="thermodynamics">Thermodynamics</SelectItem>
+                            <SelectItem value="electrodynamics">Electrodynamics</SelectItem>
+                            <SelectItem value="optics">Optics</SelectItem>
+                          </>
+                        )}
+                        {filters.subject === 'chemistry' && (
+                          <>
+                            <SelectItem value="organic">Organic Chemistry</SelectItem>
+                            <SelectItem value="inorganic">Inorganic Chemistry</SelectItem>
+                            <SelectItem value="physical">Physical Chemistry</SelectItem>
+                          </>
+                        )}
+                        {filters.subject === 'mathematics' && (
+                          <>
+                            <SelectItem value="algebra">Algebra</SelectItem>
+                            <SelectItem value="calculus">Calculus</SelectItem>
+                            <SelectItem value="trigonometry">Trigonometry</SelectItem>
+                            <SelectItem value="geometry">Geometry</SelectItem>
+                          </>
+                        )}
+                        {filters.subject === 'biology' && (
+                          <>
+                            <SelectItem value="genetics">Genetics</SelectItem>
+                            <SelectItem value="ecology">Ecology</SelectItem>
+                            <SelectItem value="biochemistry">Biochemistry</SelectItem>
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Topic Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">🧠 Topic</label>
+                    <Select 
+                      value={filters.topic}
+                      onValueChange={v => handleFilterChange('topic', v)}
+                      disabled={!filters.chapter}
+                    >
+                      <SelectTrigger className="bg-white border-orange-200 hover:border-orange-300 shadow-sm">
+                        <SelectValue placeholder="Select Topic" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filters.chapter === 'mechanics' && (
+                          <>
+                            <SelectItem value="kinematics">Kinematics</SelectItem>
+                            <SelectItem value="dynamics">Dynamics</SelectItem>
+                            <SelectItem value="work-energy">Work & Energy</SelectItem>
+                          </>
+                        )}
+                        {filters.chapter === 'organic' && (
+                          <>
+                            <SelectItem value="hydrocarbons">Hydrocarbons</SelectItem>
+                            <SelectItem value="functional-groups">Functional Groups</SelectItem>
+                          </>
+                        )}
+                        {filters.chapter === 'algebra' && (
+                          <>
+                            <SelectItem value="quadratic-equations">Quadratic Equations</SelectItem>
+                            <SelectItem value="sequences-series">Sequences & Series</SelectItem>
+                          </>
+                        )}
+                        {filters.chapter === 'genetics' && (
+                          <>
+                            <SelectItem value="mendelian">Mendelian Genetics</SelectItem>
+                            <SelectItem value="molecular">Molecular Genetics</SelectItem>
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Type Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">📂 Type</label>
+                    <Select 
+                      value={filters.type}
+                      onValueChange={v => handleFilterChange('type', v)}
+                      disabled={!filters.topic}
+                    >
+                      <SelectTrigger className="bg-white border-orange-200 hover:border-orange-300 shadow-sm">
+                        <SelectValue placeholder="Select Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="mcq">Multiple Choice (MCQ)</SelectItem>
+                        <SelectItem value="numerical">Numerical</SelectItem>
+                        <SelectItem value="subjective">Subjective</SelectItem>
+                        <SelectItem value="true-false">True/False</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Level Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">📊 Level</label>
+                    <Select 
+                      value={filters.level}
+                      onValueChange={v => handleFilterChange('level', v)}
+                      disabled={!filters.type}
+                    >
                       <SelectTrigger className="bg-white border-orange-200 hover:border-orange-300 shadow-sm">
                         <SelectValue placeholder="Select Level" />
                       </SelectTrigger>
@@ -449,48 +594,6 @@ const Index = () => {
                         <SelectItem value="easy">Easy</SelectItem>
                         <SelectItem value="medium">Medium</SelectItem>
                         <SelectItem value="hard">Hard</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Chapter</label>
-                    <Select onValueChange={v => setFilters(prev => ({ ...prev, type: v }))}>
-                      <SelectTrigger className="bg-white border-orange-200 hover:border-orange-300 shadow-sm">
-                        <SelectValue placeholder="Select Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Principles of inheritance">Principles of inheritance</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                    <Select onValueChange={v => setFilters(prev => ({ ...prev, type: v }))}>
-                      <SelectTrigger className="bg-white border-orange-200 hover:border-orange-300 shadow-sm">
-                        <SelectValue placeholder="Select Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="mcq">MCQ</SelectItem>
-                        <SelectItem value="numerical">Numerical</SelectItem>
-                        <SelectItem value="subjective">Subjective</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Topic</label>
-                    <Select onValueChange={v => setFilters(prev => ({ ...prev, topic: v }))}>
-                      <SelectTrigger className="bg-white border-orange-200 hover:border-orange-300 shadow-sm">
-                        <SelectValue placeholder="Select Topic" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="mechanics">Mechanics</SelectItem>
-                        <SelectItem value="thermodynamics">Thermodynamics</SelectItem>
-                        <SelectItem value="organic">Organic Chemistry</SelectItem>
-                        <SelectItem value="algebra">Algebra</SelectItem>
-                        <SelectItem value="calculus">Calculus</SelectItem>
-                        <SelectItem value="Introduction">Introduction</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
