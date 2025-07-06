@@ -1,15 +1,16 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
+import pandas as pd
 from database import get_db_connection
+from io import BytesIO
 
 app = FastAPI()
 
-# Allow both frontend and backend for local dev
 origins = [
-    "http://localhost:8080",  # Frontend
-    "http://localhost:8000",  # Backend (Postman or other tools)
+    "http://localhost:8080",
+    "http://localhost:8000",
     "http://127.0.0.1:8000"
 ]
 
@@ -21,7 +22,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Output model including options for MCQs
 class QuestionOut(BaseModel):
     id: int
     text: str
@@ -37,10 +37,10 @@ class QuestionOut(BaseModel):
     option_c: Optional[str] = None
     option_d: Optional[str] = None
 
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
-# Filters input from frontend
 class QuestionFilters(BaseModel):
     class_: Optional[str] = None
     language: Optional[str] = None
@@ -87,14 +87,12 @@ def fetch_filtered_questions(filters: QuestionFilters):
         clauses.append("LOWER(language) = LOWER(%s)")
         values.append(filters.language)
 
-    # If no filters are applied, return an empty list
     if not clauses:
+        cursor.close()
+        conn.close()
         return []
 
-    # Combine WHERE clauses
     full_query = base_query + " AND ".join(clauses)
-
-    # Execute query
     cursor.execute(full_query, values)
     result = cursor.fetchall()
 
@@ -102,3 +100,46 @@ def fetch_filtered_questions(filters: QuestionFilters):
     conn.close()
 
     return result
+
+@app.post("/api/questions/upload-xlsx")
+async def upload_xlsx(file: UploadFile = File(...)):
+    if not file.filename.endswith('.xlsx'):
+        raise HTTPException(status_code=400, detail="Only .xlsx files are supported")
+    try:
+        contents = await file.read()
+
+        # Use BytesIO to wrap bytes for pandas read_excel
+        df = pd.read_excel(BytesIO(contents))
+
+        required_columns = ['text', 'option_a', 'option_b', 'option_c', 'option_d',
+                            'type', 'level', 'subject', 'chapter', 'topic', 'class_', 'language']
+
+        # Normalize column names to lowercase
+        df.columns = df.columns.str.lower()
+
+        # Check if all required columns exist in the dataframe columns
+        missing_cols = [col for col in required_columns if col not in df.columns]
+        if missing_cols:
+            raise HTTPException(status_code=400, detail=f"Missing columns in Excel: {missing_cols}")
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        for _, row in df.iterrows():
+            cursor.execute("""
+                INSERT INTO questions (text, option_a, option_b, option_c, option_d,
+                                       type, level, subject, chapter, topic, class_, language)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                row.get('text'), row.get('option_a'), row.get('option_b'), row.get('option_c'), row.get('option_d'),
+                row.get('type'), row.get('level'), row.get('subject'), row.get('chapter'),
+                row.get('topic'), row.get('class_'), row.get('language')
+            ))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return {"detail": "Questions uploaded successfully!"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload: {str(e)}")
